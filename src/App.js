@@ -11,8 +11,6 @@ const App = () => {
   const [generatedSOP, setGeneratedSOP] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEditingAnswers, setIsEditingAnswers] = useState(false);
-  const [apiKey, setApiKey] = useState('');
-  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
 
   // Template data - UPDATED
   const templates = {
@@ -274,24 +272,19 @@ const App = () => {
 
   // UPDATED generateSOP function with Anthropic API
   const generateSOP = async () => {
-    if (!apiKey) {
-      setShowApiKeyInput(true);
-      return;
-    }
-
-    try {
-      const template = formTemplates[selectedTemplate];
-      const sopText = await generateSOPWithAnthropic(formData, template, sopType, apiKey);
-      setGeneratedSOP(sopText);
-      setIsGenerating(false);
-      setCurrentStep('preview');
-    } catch (error) {
-      console.error('Error generating SOP:', error);
-      setGeneratedSOP('Error generating SOP. Please check your API key and try again.');
-      setIsGenerating(false);
-      setCurrentStep('preview');
-    }
-  };
+  try {
+    const template = formTemplates[selectedTemplate];
+    const sopText = await generateSOPWithAnthropic(formData, template, sopType);
+    setGeneratedSOP(sopText);
+    setIsGenerating(false);
+    setCurrentStep('preview');
+  } catch (error) {
+    console.error('Error generating SOP:', error);
+    setGeneratedSOP('Error generating SOP. Please try again.');
+    setIsGenerating(false);
+    setCurrentStep('preview');
+  }
+};
 
   const downloadPDF = () => {
     // Create a new window with the SOP content for printing/PDF
@@ -354,52 +347,6 @@ const App = () => {
     }, 500);
   };
 
-  // API Key Modal Component
-  const ApiKeyModal = () => {
-    if (!showApiKeyInput) return null;
-    
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4">
-          <h2 className="text-2xl font-bold mb-4">Enter Anthropic API Key</h2>
-          <p className="text-gray-600 mb-4">
-            You need an Anthropic API key to generate SOPs. Get one at{' '}
-            <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
-              console.anthropic.com
-            </a>
-          </p>
-          <input
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder="sk-ant-..."
-            className="w-full p-3 border border-gray-300 rounded-lg mb-4"
-          />
-          <div className="flex space-x-3">
-            <button
-              onClick={() => {
-                setShowApiKeyInput(false);
-                if (apiKey) {
-                  setIsGenerating(true);
-                  setCurrentStep('generating');
-                  generateSOP();
-                }
-              }}
-              className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700"
-            >
-              Save & Generate
-            </button>
-            <button
-              onClick={() => setShowApiKeyInput(false)}
-              className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   // Welcome Page
   if (currentStep === 'welcome') {
@@ -451,7 +398,6 @@ const App = () => {
             </button>
           </div>
         </div>
-        <ApiKeyModal />
       </div>
     );
   }
@@ -514,7 +460,6 @@ const App = () => {
             </div>
           </div>
         </div>
-        <ApiKeyModal />
       </div>
     );
   }
@@ -572,7 +517,6 @@ const App = () => {
             </div>
           </div>
         </div>
-        <ApiKeyModal />
       </div>
     );
   }
@@ -631,7 +575,6 @@ const App = () => {
             </div>
           </div>
         </div>
-        <ApiKeyModal />
       </div>
     );
   }
@@ -751,7 +694,6 @@ const App = () => {
             </div>
           </div>
         </div>
-        <ApiKeyModal />
       </div>
     );
   }
@@ -905,7 +847,6 @@ const App = () => {
             </div>
           </div>
         </div>
-        <ApiKeyModal />
       </div>
     );
   }
