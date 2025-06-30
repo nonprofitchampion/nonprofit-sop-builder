@@ -1,4 +1,6 @@
 exports.handler = async (event, context) => {
+  console.log('Function called with method:', event.httpMethod);
+  
   // Only allow POST requests
   if (event.httpMethod !== 'POST') {
     return {
@@ -8,8 +10,20 @@ exports.handler = async (event, context) => {
   }
 
   try {
+    console.log('Request body:', event.body);
+    
     // Parse the request body
     const { formData, template, sopType } = JSON.parse(event.body);
+    console.log('Parsed data:', { formData, template, sopType });
+
+    // Check if API key exists
+    if (!process.env.ANTHROPIC_API_KEY) {
+      console.error('ANTHROPIC_API_KEY not found in environment variables');
+      throw new Error('API key not configured');
+    }
+    
+    console.log('API key found, length:', process.env.ANTHROPIC_API_KEY.length);
+    console.log('API key starts with:', process.env.ANTHROPIC_API_KEY.substring(0, 10));
 
     // Create the prompt
     const prompt = `You are an expert in creating Standard Operating Procedures (SOPs) for non-profit organizations. 
@@ -35,6 +49,8 @@ Format the output as a clean, professional document that can be easily read and 
 
 Respond with ONLY the formatted SOP document, no additional commentary.`;
 
+    console.log('Making API call to Anthropic...');
+
     // Call Anthropic API
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -53,11 +69,21 @@ Respond with ONLY the formatted SOP document, no additional commentary.`;
       })
     });
 
+    console.log('API response status:', response.status);
+
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('API error response:', errorText);
+      console.error('Request headers sent:', {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY.substring(0, 10) + '...',
+        'anthropic-version': '2023-06-01'
+      });
+      throw new Error(`API request failed: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
+    console.log('API response received, content length:', data.content[0].text.length);
     
     return {
       statusCode: 200,
@@ -72,7 +98,7 @@ Respond with ONLY the formatted SOP document, no additional commentary.`;
     };
 
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Function error:', error);
     return {
       statusCode: 500,
       headers: {
