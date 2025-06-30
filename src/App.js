@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { FileText, Users, Calendar, ArrowRight, Home } from 'lucide-react';
+import { generateSOPWithAnthropic } from './anthropicService';
 
-const SOPBuilder = () => {
+const App = () => {
   const [currentStep, setCurrentStep] = useState('welcome');
   const [sopType, setSopType] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('');
@@ -10,6 +11,8 @@ const SOPBuilder = () => {
   const [generatedSOP, setGeneratedSOP] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEditingAnswers, setIsEditingAnswers] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
 
   // Template data - UPDATED
   const templates = {
@@ -269,40 +272,22 @@ const SOPBuilder = () => {
     }
   };
 
+  // UPDATED generateSOP function with Anthropic API
   const generateSOP = async () => {
+    if (!apiKey) {
+      setShowApiKeyInput(true);
+      return;
+    }
+
     try {
       const template = formTemplates[selectedTemplate];
-      
-      const prompt = `You are an expert in creating Standard Operating Procedures (SOPs) for non-profit organizations. 
-
-Please transform the following user responses into a professional, well-structured SOP document.
-
-Template Type: ${template.title}
-SOP Category: ${sopType.charAt(0).toUpperCase() + sopType.slice(1)}
-
-User Responses:
-${Object.entries(formData).map(([key, value]) => `${key}: ${value}`).join('\n')}
-
-Create a comprehensive SOP document with:
-1. Clear title and purpose statement
-2. Well-organized sections with proper headings
-3. Professional language appropriate for non-profit staff
-4. Specific procedures and step-by-step instructions where applicable
-5. Proper formatting with bullet points and numbered lists where helpful
-6. Contact information and roles clearly defined
-7. Any necessary timelines or deadlines
-
-Format the output as a clean, professional document that can be easily read and followed by non-profit staff and volunteers. Use clear headings, proper paragraph structure, and organized sections.
-
-Respond with ONLY the formatted SOP document, no additional commentary.`;
-
-      const response = await window.claude.complete(prompt);
-      setGeneratedSOP(response);
+      const sopText = await generateSOPWithAnthropic(formData, template, sopType, apiKey);
+      setGeneratedSOP(sopText);
       setIsGenerating(false);
       setCurrentStep('preview');
     } catch (error) {
       console.error('Error generating SOP:', error);
-      setGeneratedSOP('Error generating SOP. Please try again.');
+      setGeneratedSOP('Error generating SOP. Please check your API key and try again.');
       setIsGenerating(false);
       setCurrentStep('preview');
     }
@@ -369,54 +354,104 @@ Respond with ONLY the formatted SOP document, no additional commentary.`;
     }, 500);
   };
 
+  // API Key Modal Component
+  const ApiKeyModal = () => {
+    if (!showApiKeyInput) return null;
+    
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4">
+          <h2 className="text-2xl font-bold mb-4">Enter Anthropic API Key</h2>
+          <p className="text-gray-600 mb-4">
+            You need an Anthropic API key to generate SOPs. Get one at{' '}
+            <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+              console.anthropic.com
+            </a>
+          </p>
+          <input
+            type="password"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder="sk-ant-..."
+            className="w-full p-3 border border-gray-300 rounded-lg mb-4"
+          />
+          <div className="flex space-x-3">
+            <button
+              onClick={() => {
+                setShowApiKeyInput(false);
+                if (apiKey) {
+                  setIsGenerating(true);
+                  setCurrentStep('generating');
+                  generateSOP();
+                }
+              }}
+              className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700"
+            >
+              Save & Generate
+            </button>
+            <button
+              onClick={() => setShowApiKeyInput(false)}
+              className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Welcome Page
   if (currentStep === 'welcome') {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-8">
-        <div className="bg-white rounded-3xl shadow-2xl p-16 max-w-4xl w-full text-center">
-          <div className="mb-12">
-            <div className="bg-blue-600 rounded-2xl p-6 w-20 h-20 mx-auto mb-8 flex items-center justify-center">
-              <FileText className="h-10 w-10 text-white" />
+      <div>
+        <div className="min-h-screen bg-gray-100 flex items-center justify-center p-8">
+          <div className="bg-white rounded-3xl shadow-2xl p-16 max-w-4xl w-full text-center">
+            <div className="mb-12">
+              <div className="bg-blue-600 rounded-2xl p-6 w-20 h-20 mx-auto mb-8 flex items-center justify-center">
+                <FileText className="h-10 w-10 text-white" />
+              </div>
+              <h1 className="text-5xl font-bold text-gray-800 mb-6 tracking-tight">
+                SOP Builder
+              </h1>
+              <p className="text-2xl text-gray-600 leading-relaxed max-w-3xl mx-auto">
+                Create clear, professional Standard Operating Procedures for your non-profit organization. 
+                Our step-by-step guide makes it simple to document your processes.
+              </p>
             </div>
-            <h1 className="text-5xl font-bold text-gray-800 mb-6 tracking-tight">
-              SOP Builder
-            </h1>
-            <p className="text-2xl text-gray-600 leading-relaxed max-w-3xl mx-auto">
-              Create clear, professional Standard Operating Procedures for your non-profit organization. 
-              Our step-by-step guide makes it simple to document your processes.
-            </p>
-          </div>
-          
-          <div className="mb-12 p-8 bg-gray-50 rounded-2xl">
-            <h2 className="text-3xl font-semibold text-gray-800 mb-8">How it works:</h2>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="flex items-center text-left">
-                <span className="bg-blue-600 text-white rounded-full w-12 h-12 flex items-center justify-center font-bold text-xl mr-6 flex-shrink-0">1</span>
-                <span className="text-xl text-gray-700">Choose your SOP type</span>
-              </div>
-              <div className="flex items-center text-left">
-                <span className="bg-blue-600 text-white rounded-full w-12 h-12 flex items-center justify-center font-bold text-xl mr-6 flex-shrink-0">2</span>
-                <span className="text-xl text-gray-700">Select a template</span>
-              </div>
-              <div className="flex items-center text-left">
-                <span className="bg-blue-600 text-white rounded-full w-12 h-12 flex items-center justify-center font-bold text-xl mr-6 flex-shrink-0">3</span>
-                <span className="text-xl text-gray-700">Fill out the form</span>
-              </div>
-              <div className="flex items-center text-left">
-                <span className="bg-blue-600 text-white rounded-full w-12 h-12 flex items-center justify-center font-bold text-xl mr-6 flex-shrink-0">4</span>
-                <span className="text-xl text-gray-700">Download your SOP</span>
+            
+            <div className="mb-12 p-8 bg-gray-50 rounded-2xl">
+              <h2 className="text-3xl font-semibold text-gray-800 mb-8">How it works:</h2>
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="flex items-center text-left">
+                  <span className="bg-blue-600 text-white rounded-full w-12 h-12 flex items-center justify-center font-bold text-xl mr-6 flex-shrink-0">1</span>
+                  <span className="text-xl text-gray-700">Choose your SOP type</span>
+                </div>
+                <div className="flex items-center text-left">
+                  <span className="bg-blue-600 text-white rounded-full w-12 h-12 flex items-center justify-center font-bold text-xl mr-6 flex-shrink-0">2</span>
+                  <span className="text-xl text-gray-700">Select a template</span>
+                </div>
+                <div className="flex items-center text-left">
+                  <span className="bg-blue-600 text-white rounded-full w-12 h-12 flex items-center justify-center font-bold text-xl mr-6 flex-shrink-0">3</span>
+                  <span className="text-xl text-gray-700">Fill out the form</span>
+                </div>
+                <div className="flex items-center text-left">
+                  <span className="bg-blue-600 text-white rounded-full w-12 h-12 flex items-center justify-center font-bold text-xl mr-6 flex-shrink-0">4</span>
+                  <span className="text-xl text-gray-700">Download your SOP</span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <button
-            onClick={() => setCurrentStep('type-selection')}
-            className="bg-blue-600 hover:bg-blue-700 text-white text-2xl font-bold py-6 px-16 rounded-2xl transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:scale-105 flex items-center mx-auto"
-          >
-            Create New SOP
-            <ArrowRight className="ml-4 h-7 w-7" />
-          </button>
+            <button
+              onClick={() => setCurrentStep('type-selection')}
+              className="bg-blue-600 hover:bg-blue-700 text-white text-2xl font-bold py-6 px-16 rounded-2xl transition-all duration-300 shadow-xl hover:shadow-2xl transform hover:scale-105 flex items-center mx-auto"
+            >
+              Create New SOP
+              <ArrowRight className="ml-4 h-7 w-7" />
+            </button>
+          </div>
         </div>
+        <ApiKeyModal />
       </div>
     );
   }
@@ -424,59 +459,62 @@ Respond with ONLY the formatted SOP document, no additional commentary.`;
   // Type Selection Page
   if (currentStep === 'type-selection') {
     return (
-      <div className="min-h-screen bg-gray-100 p-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="bg-white rounded-3xl shadow-2xl p-12">
-            <div className="text-center mb-12">
-              <h1 className="text-4xl font-bold text-gray-800 mb-6">Choose Your SOP Type</h1>
-              <p className="text-2xl text-gray-600">What type of procedure do you want to create?</p>
-            </div>
+      <div>
+        <div className="min-h-screen bg-gray-100 p-8">
+          <div className="max-w-6xl mx-auto">
+            <div className="bg-white rounded-3xl shadow-2xl p-12">
+              <div className="text-center mb-12">
+                <h1 className="text-4xl font-bold text-gray-800 mb-6">Choose Your SOP Type</h1>
+                <p className="text-2xl text-gray-600">What type of procedure do you want to create?</p>
+              </div>
 
-            <div className="grid md:grid-cols-2 gap-8 mb-12">
-              <button
-                onClick={() => {
-                  setSopType('department');
-                  setCurrentStep('template-selection');
-                }}
-                className="bg-white rounded-2xl shadow-lg hover:shadow-2xl p-10 transition-all duration-300 hover:scale-105 border border-gray-100 group"
-              >
-                <div className="bg-blue-600 rounded-2xl p-6 w-20 h-20 mx-auto mb-6 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Users className="h-10 w-10 text-white" />
-                </div>
-                <h2 className="text-3xl font-bold text-gray-800 mb-6">Department Procedures</h2>
-                <p className="text-xl text-gray-600 leading-relaxed">
-                  Create SOPs for how your department operates, manages meetings, handles approvals, and assigns responsibilities.
-                </p>
-              </button>
+              <div className="grid md:grid-cols-2 gap-8 mb-12">
+                <button
+                  onClick={() => {
+                    setSopType('department');
+                    setCurrentStep('template-selection');
+                  }}
+                  className="bg-white rounded-2xl shadow-lg hover:shadow-2xl p-10 transition-all duration-300 hover:scale-105 border border-gray-100 group"
+                >
+                  <div className="bg-blue-600 rounded-2xl p-6 w-20 h-20 mx-auto mb-6 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Users className="h-10 w-10 text-white" />
+                  </div>
+                  <h2 className="text-3xl font-bold text-gray-800 mb-6">Department Procedures</h2>
+                  <p className="text-xl text-gray-600 leading-relaxed">
+                    Create SOPs for how your department operates, manages meetings, handles approvals, and assigns responsibilities.
+                  </p>
+                </button>
 
-              <button
-                onClick={() => {
-                  setSopType('event');
-                  setCurrentStep('template-selection');
-                }}
-                className="bg-white rounded-2xl shadow-lg hover:shadow-2xl p-10 transition-all duration-300 hover:scale-105 border border-gray-100 group"
-              >
-                <div className="bg-green-600 rounded-2xl p-6 w-20 h-20 mx-auto mb-6 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Calendar className="h-10 w-10 text-white" />
-                </div>
-                <h2 className="text-3xl font-bold text-gray-800 mb-6">Event Procedures</h2>
-                <p className="text-xl text-gray-600 leading-relaxed">
-                  Document how to plan events, assemble teams, manage venues, coordinate volunteers, and handle logistics.
-                </p>
-              </button>
-            </div>
+                <button
+                  onClick={() => {
+                    setSopType('event');
+                    setCurrentStep('template-selection');
+                  }}
+                  className="bg-white rounded-2xl shadow-lg hover:shadow-2xl p-10 transition-all duration-300 hover:scale-105 border border-gray-100 group"
+                >
+                  <div className="bg-green-600 rounded-2xl p-6 w-20 h-20 mx-auto mb-6 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Calendar className="h-10 w-10 text-white" />
+                  </div>
+                  <h2 className="text-3xl font-bold text-gray-800 mb-6">Event Procedures</h2>
+                  <p className="text-xl text-gray-600 leading-relaxed">
+                    Document how to plan events, assemble teams, manage venues, coordinate volunteers, and handle logistics.
+                  </p>
+                </button>
+              </div>
 
-            <div className="text-center">
-              <button
-                onClick={() => setCurrentStep('welcome')}
-                className="text-gray-500 hover:text-gray-700 text-xl font-medium flex items-center mx-auto transition-colors"
-              >
-                <Home className="mr-3 h-6 w-6" />
-                Back to Home
-              </button>
+              <div className="text-center">
+                <button
+                  onClick={() => setCurrentStep('welcome')}
+                  className="text-gray-500 hover:text-gray-700 text-xl font-medium flex items-center mx-auto transition-colors"
+                >
+                  <Home className="mr-3 h-6 w-6" />
+                  Back to Home
+                </button>
+              </div>
             </div>
           </div>
         </div>
+        <ApiKeyModal />
       </div>
     );
   }
@@ -487,51 +525,54 @@ Respond with ONLY the formatted SOP document, no additional commentary.`;
     const colorClass = sopType === 'department' ? 'bg-blue-600' : 'bg-green-600';
     
     return (
-      <div className="min-h-screen bg-gray-100 p-8">
-        <div className="max-w-5xl mx-auto">
-          <div className="bg-white rounded-3xl shadow-2xl p-12">
-            <div className="text-center mb-12">
-              <h1 className="text-4xl font-bold text-gray-800 mb-6">
-                Choose Your {sopType === 'department' ? 'Department' : 'Event'} Template
-              </h1>
-              <p className="text-2xl text-gray-600">Select the template that best matches your needs</p>
-            </div>
+      <div>
+        <div className="min-h-screen bg-gray-100 p-8">
+          <div className="max-w-5xl mx-auto">
+            <div className="bg-white rounded-3xl shadow-2xl p-12">
+              <div className="text-center mb-12">
+                <h1 className="text-4xl font-bold text-gray-800 mb-6">
+                  Choose Your {sopType === 'department' ? 'Department' : 'Event'} Template
+                </h1>
+                <p className="text-2xl text-gray-600">Select the template that best matches your needs</p>
+              </div>
 
-            <div className="space-y-6 mb-12">
-              {currentTemplates.map((template) => (
+              <div className="space-y-6 mb-12">
+                {currentTemplates.map((template) => (
+                  <button
+                    key={template.id}
+                    onClick={() => {
+                      setSelectedTemplate(template.id);
+                      setFormData({});
+                      setCurrentFormStep(0);
+                      setCurrentStep('form-completion');
+                    }}
+                    className="w-full bg-white rounded-2xl shadow-lg hover:shadow-2xl p-8 transition-all duration-300 hover:scale-102 border border-gray-100 text-left group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="text-3xl font-bold text-gray-800 mb-4">{template.title}</h3>
+                        <p className="text-xl text-gray-600 leading-relaxed">{template.description}</p>
+                      </div>
+                      <div className={`${colorClass} rounded-2xl p-4 ml-6 group-hover:scale-110 transition-transform`}>
+                        <ArrowRight className="h-8 w-8 text-white" />
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              <div className="text-center">
                 <button
-                  key={template.id}
-                  onClick={() => {
-                    setSelectedTemplate(template.id);
-                    setFormData({});
-                    setCurrentFormStep(0);
-                    setCurrentStep('form-completion');
-                  }}
-                  className="w-full bg-white rounded-2xl shadow-lg hover:shadow-2xl p-8 transition-all duration-300 hover:scale-102 border border-gray-100 text-left group"
+                  onClick={() => setCurrentStep('type-selection')}
+                  className="text-gray-500 hover:text-gray-700 text-xl font-medium transition-colors"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <h3 className="text-3xl font-bold text-gray-800 mb-4">{template.title}</h3>
-                      <p className="text-xl text-gray-600 leading-relaxed">{template.description}</p>
-                    </div>
-                    <div className={`${colorClass} rounded-2xl p-4 ml-6 group-hover:scale-110 transition-transform`}>
-                      <ArrowRight className="h-8 w-8 text-white" />
-                    </div>
-                  </div>
+                  ← Back to SOP Type Selection
                 </button>
-              ))}
-            </div>
-
-            <div className="text-center">
-              <button
-                onClick={() => setCurrentStep('type-selection')}
-                className="text-gray-500 hover:text-gray-700 text-xl font-medium transition-colors"
-              >
-                ← Back to SOP Type Selection
-              </button>
+              </div>
             </div>
           </div>
         </div>
+        <ApiKeyModal />
       </div>
     );
   }
@@ -541,53 +582,56 @@ Respond with ONLY the formatted SOP document, no additional commentary.`;
     const template = formTemplates[selectedTemplate];
     
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-8">
-        <div className="bg-white rounded-3xl shadow-2xl p-16 max-w-3xl w-full text-center">
-          <div className="mb-12">
-            <div className="mx-auto mb-8 w-32 h-32 flex items-center justify-center">
-              <div className="animate-spin rounded-full h-24 w-24 border-8 border-gray-200 border-t-blue-600 border-r-blue-500 border-b-blue-400"></div>
-            </div>
-            
-            <h1 className="text-4xl font-bold text-gray-800 mb-6">
-              Creating Your SOP
-            </h1>
-            <p className="text-2xl text-gray-600 leading-relaxed mb-8">
-              Our AI is analyzing your responses and generating a professional Standard Operating Procedure document...
-            </p>
-            
-            <div className="space-y-4 text-lg text-gray-600">
-              <div className="flex items-center justify-center">
-                <div className="bg-green-500 rounded-full w-6 h-6 flex items-center justify-center mr-4">
-                  <span className="text-white text-sm">✓</span>
-                </div>
-                <span>Form responses collected</span>
+      <div>
+        <div className="min-h-screen bg-gray-100 flex items-center justify-center p-8">
+          <div className="bg-white rounded-3xl shadow-2xl p-16 max-w-3xl w-full text-center">
+            <div className="mb-12">
+              <div className="mx-auto mb-8 w-32 h-32 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-24 w-24 border-8 border-gray-200 border-t-blue-600 border-r-blue-500 border-b-blue-400"></div>
               </div>
               
-              <div className="flex items-center justify-center">
-                <div className="bg-blue-600 rounded-full w-6 h-6 flex items-center justify-center mr-4 animate-pulse">
-                  <div className="bg-white rounded-full w-2 h-2"></div>
-                </div>
-                <span>AI processing your {template?.title}...</span>
-              </div>
+              <h1 className="text-4xl font-bold text-gray-800 mb-6">
+                Creating Your SOP
+              </h1>
+              <p className="text-2xl text-gray-600 leading-relaxed mb-8">
+                Our AI is analyzing your responses and generating a professional Standard Operating Procedure document...
+              </p>
               
-              <div className="flex items-center justify-center">
-                <div className="bg-gray-300 rounded-full w-6 h-6 flex items-center justify-center mr-4">
-                  <span className="text-gray-500 text-sm">○</span>
+              <div className="space-y-4 text-lg text-gray-600">
+                <div className="flex items-center justify-center">
+                  <div className="bg-green-500 rounded-full w-6 h-6 flex items-center justify-center mr-4">
+                    <span className="text-white text-sm">✓</span>
+                  </div>
+                  <span>Form responses collected</span>
                 </div>
-                <span className="text-gray-400">Formatting professional document</span>
+                
+                <div className="flex items-center justify-center">
+                  <div className="bg-blue-600 rounded-full w-6 h-6 flex items-center justify-center mr-4 animate-pulse">
+                    <div className="bg-white rounded-full w-2 h-2"></div>
+                  </div>
+                  <span>AI processing your {template?.title}...</span>
+                </div>
+                
+                <div className="flex items-center justify-center">
+                  <div className="bg-gray-300 rounded-full w-6 h-6 flex items-center justify-center mr-4">
+                    <span className="text-gray-500 text-sm">○</span>
+                  </div>
+                  <span className="text-gray-400">Formatting professional document</span>
+                </div>
               </div>
             </div>
-          </div>
-          
-          <div className="bg-blue-50 rounded-2xl p-6">
-            <p className="text-lg text-gray-700">
-              <strong>Estimated time:</strong> 30-60 seconds
-            </p>
-            <p className="text-base text-gray-600 mt-2">
-              Please wait while we create your customized SOP document
-            </p>
+            
+            <div className="bg-blue-50 rounded-2xl p-6">
+              <p className="text-lg text-gray-700">
+                <strong>Estimated time:</strong> 30-60 seconds
+              </p>
+              <p className="text-base text-gray-600 mt-2">
+                Please wait while we create your customized SOP document
+              </p>
+            </div>
           </div>
         </div>
+        <ApiKeyModal />
       </div>
     );
   }
@@ -623,187 +667,245 @@ Respond with ONLY the formatted SOP document, no additional commentary.`;
     };
 
     return (
-      <div className="min-h-screen bg-gray-100 p-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-white rounded-3xl shadow-2xl p-12">
-            <div className="text-center mb-8">
-              <h1 className="text-4xl font-bold text-gray-800 mb-4">{template.title}</h1>
-              <p className="text-xl text-gray-600 mb-6">{currentStepData.title}</p>
-              
-              <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
-                <div 
-                  className="bg-blue-600 h-3 rounded-full transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                ></div>
-              </div>
-              <p className="text-lg text-gray-500">Step {currentFormStep + 1} of {template.steps.length}</p>
-            </div>
-
-            <div className="space-y-8 mb-12">
-              {currentStepData.questions.map((question) => (
-                <div key={question.id} className="bg-gray-50 rounded-2xl p-6">
-                  <label className="block text-xl font-semibold text-gray-800 mb-4">
-                    {question.label}
-                    {question.required && <span className="text-red-500 ml-1">*</span>}
-                  </label>
-                  
-                  {question.type === 'text' && (
-                    <input
-                      type="text"
-                      value={formData[question.id] || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, [question.id]: e.target.value }))}
-                      placeholder={question.placeholder}
-                      className="w-full text-lg p-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
-                    />
-                  )}
-                  
-                  {question.type === 'textarea' && (
-                    <textarea
-                      value={formData[question.id] || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, [question.id]: e.target.value }))}
-                      placeholder={question.placeholder}
-                      rows={4}
-                      className="w-full text-lg p-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors resize-none"
-                    />
-                  )}
-                  
-                  {question.type === 'select' && (
-                    <select
-                      value={formData[question.id] || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, [question.id]: e.target.value }))}
-                      className="w-full text-lg p-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
-                    >
-                      <option value="">Choose an option...</option>
-                      {question.options?.map((option) => (
-                        <option key={option} value={option}>{option}</option>
-                      ))}
-                    </select>
-                  )}
+      <div>
+        <div className="min-h-screen bg-gray-100 p-8">
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-white rounded-3xl shadow-2xl p-12">
+              <div className="text-center mb-8">
+                <h1 className="text-4xl font-bold text-gray-800 mb-4">{template.title}</h1>
+                <p className="text-xl text-gray-600 mb-6">{currentStepData.title}</p>
+                
+                <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
+                  <div 
+                    className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                    style={{ width: `${progress}%` }}
+                  ></div>
                 </div>
-              ))}
-            </div>
+                <p className="text-lg text-gray-500">Step {currentFormStep + 1} of {template.steps.length}</p>
+              </div>
 
-            <div className="flex justify-between items-center">
-              <button
-                onClick={currentFormStep === 0 ? () => setCurrentStep('template-selection') : prevStep}
-                className="text-gray-500 hover:text-gray-700 text-xl font-medium transition-colors flex items-center"
-              >
-                ← {currentFormStep === 0 ? 'Back to Templates' : 'Previous Step'}
-              </button>
-              
-              <button
-                onClick={nextStep}
-                disabled={!canProceed()}
-                className={`px-8 py-4 rounded-2xl text-xl font-bold transition-all duration-300 ${
-                  canProceed() 
-                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105' 
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                {currentFormStep === template.steps.length - 1 ? 'Generate SOP' : 'Next Step'} →
-              </button>
+              <div className="space-y-8 mb-12">
+                {currentStepData.questions.map((question) => (
+                  <div key={question.id} className="bg-gray-50 rounded-2xl p-6">
+                    <label className="block text-xl font-semibold text-gray-800 mb-4">
+                      {question.label}
+                      {question.required && <span className="text-red-500 ml-1">*</span>}
+                    </label>
+                    
+                    {question.type === 'text' && (
+                      <input
+                        type="text"
+                        value={formData[question.id] || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, [question.id]: e.target.value }))}
+                        placeholder={question.placeholder}
+                        className="w-full text-lg p-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
+                      />
+                    )}
+                    
+                    {question.type === 'textarea' && (
+                      <textarea
+                        value={formData[question.id] || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, [question.id]: e.target.value }))}
+                        placeholder={question.placeholder}
+                        rows={4}
+                        className="w-full text-lg p-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors resize-none"
+                      />
+                    )}
+                    
+                    {question.type === 'select' && (
+                      <select
+                        value={formData[question.id] || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, [question.id]: e.target.value }))}
+                        className="w-full text-lg p-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
+                      >
+                        <option value="">Choose an option...</option>
+                        {question.options?.map((option) => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-between items-center">
+                <button
+                  onClick={currentFormStep === 0 ? () => setCurrentStep('template-selection') : prevStep}
+                  className="text-gray-500 hover:text-gray-700 text-xl font-medium transition-colors flex items-center"
+                >
+                  ← {currentFormStep === 0 ? 'Back to Templates' : 'Previous Step'}
+                </button>
+                
+                <button
+                  onClick={nextStep}
+                  disabled={!canProceed()}
+                  className={`px-8 py-4 rounded-2xl text-xl font-bold transition-all duration-300 ${
+                    canProceed() 
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105' 
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  {currentFormStep === template.steps.length - 1 ? 'Generate SOP' : 'Next Step'} →
+                </button>
+              </div>
             </div>
           </div>
         </div>
+        <ApiKeyModal />
       </div>
     );
   }
 
   // Preview Page
   if (currentStep === 'preview') {
+    const template = formTemplates[selectedTemplate];
+    
     return (
-      <div className="min-h-screen bg-gray-100 p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-white rounded-3xl shadow-2xl p-8">
-            <div className="text-center mb-8">
-              <h1 className="text-4xl font-bold text-gray-800 mb-4">Your SOP is Ready!</h1>
-              <p className="text-xl text-gray-600">Review your answers and the generated SOP document</p>
-            </div>
+      <div>
+        <div className="min-h-screen bg-gray-100 p-8">
+          <div className="max-w-7xl mx-auto">
+            <div className="bg-white rounded-3xl shadow-2xl p-8">
+              <div className="text-center mb-8">
+                <h1 className="text-4xl font-bold text-gray-800 mb-4">Your SOP is Ready!</h1>
+                <p className="text-xl text-gray-600">Review your answers and the generated SOP document</p>
+              </div>
 
-            <div className="grid lg:grid-cols-2 gap-8">
-              <div className="bg-gray-50 rounded-2xl p-6">
-                <h2 className="text-2xl font-bold text-gray-800 mb-6">Your Answers</h2>
-                <div className="space-y-4 max-h-96 overflow-y-auto">
-                  {Object.entries(formData).map(([key, value]) => (
-                    <div key={key} className="bg-white rounded-xl p-4">
-                      <h3 className="font-semibold text-gray-700 mb-2 capitalize">
-                        {key.replace(/([A-Z])/g, ' $1').trim()}
-                      </h3>
-                      <p className="text-gray-600">{value}</p>
-                    </div>
-                  ))}
+              <div className="grid lg:grid-cols-2 gap-8">
+                {/* Left Panel - User Answers */}
+                <div className="bg-gray-50 rounded-2xl p-6">
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold text-gray-800">Your Answers</h2>
+                    <button
+                      onClick={() => setIsEditingAnswers(!isEditingAnswers)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-medium transition-colors"
+                    >
+                      {isEditingAnswers ? 'Save Changes' : 'Edit Answers'}
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-4 max-h-96 overflow-y-auto">
+                    {template && template.steps.flatMap(step => step.questions).map((question) => (
+                      <div key={question.id} className="bg-white rounded-xl p-4">
+                        <h3 className="font-semibold text-gray-700 mb-2">
+                          {question.label}
+                        </h3>
+                        
+                        {isEditingAnswers ? (
+                          <>
+                            {question.type === 'text' && (
+                              <input
+                                type="text"
+                                value={formData[question.id] || ''}
+                                onChange={(e) => setFormData(prev => ({ ...prev, [question.id]: e.target.value }))}
+                                className="w-full p-3 border border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
+                                placeholder={question.placeholder}
+                              />
+                            )}
+                            
+                            {question.type === 'textarea' && (
+                              <textarea
+                                value={formData[question.id] || ''}
+                                onChange={(e) => setFormData(prev => ({ ...prev, [question.id]: e.target.value }))}
+                                rows={3}
+                                className="w-full p-3 border border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none resize-none"
+                                placeholder={question.placeholder}
+                              />
+                            )}
+                            
+                            {question.type === 'select' && (
+                              <select
+                                value={formData[question.id] || ''}
+                                onChange={(e) => setFormData(prev => ({ ...prev, [question.id]: e.target.value }))}
+                                className="w-full p-3 border border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
+                              >
+                                <option value="">Choose an option...</option>
+                                {question.options?.map((option) => (
+                                  <option key={option} value={option}>{option}</option>
+                                ))}
+                              </select>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-gray-600">{formData[question.id] || 'Not answered'}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Right Panel - Generated SOP */}
+                <div className="bg-gray-50 rounded-2xl p-6">
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold text-gray-800">Generated SOP</h2>
+                    <button
+                      onClick={async () => {
+                        setIsGenerating(true);
+                        setIsEditingAnswers(false);
+                        await generateSOP();
+                      }}
+                      disabled={isGenerating}
+                      className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-xl font-medium transition-colors disabled:opacity-50"
+                    >
+                      {isGenerating ? 'Regenerating...' : 'Regenerate SOP'}
+                    </button>
+                  </div>
+                  
+                  <div className="bg-white rounded-xl p-6 max-h-96 overflow-y-auto">
+                    {isGenerating ? (
+                      <div className="text-center py-12">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                        <p className="text-gray-600">Generating your SOP...</p>
+                      </div>
+                    ) : (
+                      <textarea
+                        value={generatedSOP}
+                        onChange={(e) => setGeneratedSOP(e.target.value)}
+                        className="w-full h-80 text-sm p-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors resize-none"
+                        placeholder="Your SOP will appear here..."
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div className="bg-gray-50 rounded-2xl p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-gray-800">Generated SOP</h2>
+              {/* Action Buttons */}
+              <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-200">
+                <button
+                  onClick={() => setCurrentStep('form-completion')}
+                  className="text-gray-500 hover:text-gray-700 text-xl font-medium transition-colors"
+                >
+                  ← Back to Form
+                </button>
+                
+                <div className="space-x-4">
                   <button
-                    onClick={async () => {
-                      setIsGenerating(true);
-                      await generateSOP();
+                    onClick={() => {
+                      setCurrentStep('welcome');
+                      setFormData({});
+                      setSelectedTemplate('');
+                      setSopType('');
+                      setCurrentFormStep(0);
+                      setGeneratedSOP('');
+                      setIsEditingAnswers(false);
                     }}
-                    disabled={isGenerating}
-                    className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-xl font-medium transition-colors disabled:opacity-50"
+                    className="bg-gray-600 hover:bg-gray-700 text-white text-xl font-bold py-4 px-8 rounded-2xl transition-all duration-300"
                   >
-                    {isGenerating ? 'Regenerating...' : 'Regenerate'}
+                    Start New SOP
+                  </button>
+                  
+                  <button
+                    onClick={downloadPDF}
+                    disabled={!generatedSOP || isGenerating}
+                    className="bg-blue-600 hover:bg-blue-700 text-white text-xl font-bold py-4 px-8 rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Download PDF
                   </button>
                 </div>
-                
-                <div className="bg-white rounded-xl p-6 max-h-96 overflow-y-auto">
-                  {isGenerating ? (
-                    <div className="text-center py-12">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                      <p className="text-gray-600">Generating your SOP...</p>
-                    </div>
-                  ) : (
-                    <textarea
-                      value={generatedSOP}
-                      onChange={(e) => setGeneratedSOP(e.target.value)}
-                      className="w-full h-80 text-sm p-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors resize-none"
-                      placeholder="Your SOP will appear here..."
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-200">
-              <button
-                onClick={() => setCurrentStep('form-completion')}
-                className="text-gray-500 hover:text-gray-700 text-xl font-medium transition-colors"
-              >
-                ← Back to Form
-              </button>
-              
-              <div className="space-x-4">
-                <button
-                  onClick={() => {
-                    setCurrentStep('welcome');
-                    setFormData({});
-                    setSelectedTemplate('');
-                    setSopType('');
-                    setCurrentFormStep(0);
-                    setGeneratedSOP('');
-                  }}
-                  className="bg-gray-600 hover:bg-gray-700 text-white text-xl font-bold py-4 px-8 rounded-2xl transition-all duration-300"
-                >
-                  Start New SOP
-                </button>
-                
-                <button
-                  onClick={() => {
-                    alert('PDF download coming soon!');
-                  }}
-                  disabled={!generatedSOP || isGenerating}
-                  className="bg-blue-600 hover:bg-blue-700 text-white text-xl font-bold py-4 px-8 rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Download PDF
-                </button>
               </div>
             </div>
           </div>
         </div>
+        <ApiKeyModal />
       </div>
     );
   }
@@ -811,4 +913,4 @@ Respond with ONLY the formatted SOP document, no additional commentary.`;
   return null;
 };
 
-export default SOPBuilder;
+export default App;
